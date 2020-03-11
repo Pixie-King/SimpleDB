@@ -41,8 +41,8 @@ public class TupleDesc implements Serializable {
      *        that are included in this TupleDesc
      * */
     public Iterator<TDItem> iterator() {
-        // some code goes here
-        return null;
+        Iterator<TDItem> itemIterator = items.iterator();
+        return itemIterator;
     }
 
     private static final long serialVersionUID = 1L;
@@ -85,6 +85,9 @@ public class TupleDesc implements Serializable {
         }
     }
 
+    public List<TDItem> getItems(){
+        return items;
+    }
     /**
      * @return the number of fields in this TupleDesc
      */
