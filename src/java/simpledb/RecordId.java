@@ -7,7 +7,8 @@ import java.io.Serializable;
  * specific table.
  */
 public class RecordId implements Serializable {
-
+    private PageId pageId;
+    private int tupleNo;
     private static final long serialVersionUID = 1L;
 
     /**
@@ -20,23 +21,22 @@ public class RecordId implements Serializable {
      *            the tuple number within the page.
      */
     public RecordId(PageId pid, int tupleno) {
-        // some code goes here
+        this.pageId = pid;
+        this.tupleNo = tupleno;
     }
 
     /**
      * @return the tuple number this RecordId references.
      */
     public int getTupleNumber() {
-        // some code goes here
-        return 0;
+        return this.tupleNo;
     }
 
     /**
      * @return the page id this RecordId references.
      */
     public PageId getPageId() {
-        // some code goes here
-        return null;
+        return this.pageId;
     }
 
     /**
@@ -47,8 +47,11 @@ public class RecordId implements Serializable {
      */
     @Override
     public boolean equals(Object o) {
-        // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        if(o == null)return false;
+        if(!o.getClass().equals(RecordId.class))return false;
+        RecordId recordId = (RecordId)o;
+        if(this.tupleNo == recordId.getTupleNumber() && recordId.pageId.equals(this.pageId))return true;
+        else return false;
     }
 
     /**
@@ -59,9 +62,7 @@ public class RecordId implements Serializable {
      */
     @Override
     public int hashCode() {
-        // some code goes here
-        throw new UnsupportedOperationException("implement this");
-
+        return pageId.getPageNumber() + pageId.getTableId() + tupleNo;
     }
 
 }

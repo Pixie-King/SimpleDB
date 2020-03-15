@@ -2,6 +2,8 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -16,7 +18,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Threadsafe, all fields are final
  */
 public class BufferPool {
+    private int numPages;
+
+    private List<Page> pages;
+
     /** Bytes per page, including header. */
+
     private static final int DEFAULT_PAGE_SIZE = 4096;
 
     private static int pageSize = DEFAULT_PAGE_SIZE;
@@ -32,7 +39,8 @@ public class BufferPool {
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-        // some code goes here
+       this.numPages = numPages;
+       pages = new ArrayList<>();
     }
     
     public static int getPageSize() {
@@ -65,8 +73,13 @@ public class BufferPool {
      * @param perm the requested permissions on the page
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
-        throws TransactionAbortedException, DbException {
-        // some code goes here
+            throws TransactionAbortedException, DbException{
+//        for (int i = 0; i < pages.size(); i++) {
+//            if(this.pages.get(i).getId() == pid)return this.pages.get(i);
+//        }
+//        if(pages.size() == pageSize)throw new DbException(null);
+//        Page page = new HeapPage((HeapPageId) pid, null);
+//        return page;
         return null;
     }
 
