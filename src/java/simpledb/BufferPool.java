@@ -74,13 +74,13 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException{
-//        for (int i = 0; i < pages.size(); i++) {
-//            if(this.pages.get(i).getId() == pid)return this.pages.get(i);
-//        }
-//        if(pages.size() == pageSize)throw new DbException(null);
-//        Page page = new HeapPage((HeapPageId) pid, null);
-//        return page;
-        return null;
+        if(tid == null)throw new TransactionAbortedException();
+        for (int i = 0; i < pages.size(); i++) {
+            if(this.pages.get(i).getId() == pid)return this.pages.get(i);
+        }
+        if(pages.size() == DEFAULT_PAGES)throw new DbException(null);
+        pages.add(Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid));
+        return Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
     }
 
     /**
