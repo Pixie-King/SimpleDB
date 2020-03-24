@@ -39,9 +39,7 @@ public class JoinPredicate implements Serializable {
      * @return true if the tuples satisfy the predicate.
      */
     public boolean filter(Tuple t1, Tuple t2) {
-        for (int i = 0; i < t1.datas.size(); i++) {
-            if(!t1.datas.get(i).compare(op,t2.datas.get(i)))return false;
-        }return true;
+        return t1.getField(field1).compare(op,t2.getField(field2));
     }
     
     public int getField1()
