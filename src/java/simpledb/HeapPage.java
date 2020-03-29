@@ -5,7 +5,7 @@ import java.util.*;
 import java.io.*;
 
 /**
- * Each instance of HeapPage stores data for one page of HeapFiles and 
+ * Each instance of HeapPage stores data for one page of HeapFiles and
  * implements the Page interface that is used by BufferPool.
  *
  * @see HeapFile
@@ -65,7 +65,7 @@ public class HeapPage implements Page {
     /** Retrieve the number of tuples on this page.
         @return the number of tuples on this page
     */
-    private int getNumTuples() {        
+    private int getNumTuples() {
         return BufferPool.getPageSize() * 8 / (td.getSize() * 8 + 1);
     }
 
@@ -73,11 +73,11 @@ public class HeapPage implements Page {
      * Computes the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
-    private int getHeaderSize() {        
+    private int getHeaderSize() {
        if(getNumTuples() % 8 == 0)return getNumTuples() / 8;
        else return getNumTuples() / 8 + 1;
     }
-    
+
     /** Return a view of this page before it was modified
         -- used by recovery */
     public HeapPage getBeforeImage(){
@@ -95,7 +95,7 @@ public class HeapPage implements Page {
         }
         return null;
     }
-    
+
     public void setBeforeImage() {
         synchronized(oldDataLock)
         {
@@ -191,7 +191,7 @@ public class HeapPage implements Page {
                 Field f = tuples[i].getField(j);
                 try {
                     f.serialize(dos);
-                
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -269,7 +269,7 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
 	// Not necessary for lab1
-        return null;      
+        return null;
     }
 
     /**
@@ -289,7 +289,7 @@ public class HeapPage implements Page {
     public boolean isSlotUsed(int i) {
         int headerNum = i / 8;
         int moveNum = i - i / 8 * 8;
-        byte array = (byte)(((byte)header[headerNum]>>moveNum)&1);
+        byte array = (byte)((header[headerNum]>>moveNum)&1);
         String str = new String(String.valueOf(array));
         if(str.equals("1"))return true;
         return false;

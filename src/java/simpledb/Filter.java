@@ -30,7 +30,7 @@ public class Filter extends Operator {
     }
 
     public TupleDesc getTupleDesc() {
-        return  null;
+        return child.getTupleDesc();
     }
 
     public void open() throws DbException, NoSuchElementException,
