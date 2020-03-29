@@ -10,7 +10,7 @@ public class StringAggregator implements Aggregator {
     Type gbfieldtype;
     int afield;
     Op what;
-    Map<Integer,Integer> groupPairMap;
+    Map<Field,Integer> groupPairMap;
     List<Tuple> tupleList;
     private static final long serialVersionUID = 1L;
 
@@ -37,14 +37,7 @@ public class StringAggregator implements Aggregator {
      * @param tup the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
-        int groupValue = Integer.parseInt(tup.getField(gbfield).toString());
-        TupleDesc td2 = new TupleDesc(new Type[]{Type.STRING_TYPE},
-                new String[]{"aggregateVal"});
-        if (groupValue == Aggregator.NO_GROUPING) {
-            Tuple tuple = new Tuple(td2);
-            tuple.setField(0, tup.getField(afield));
-            tupleList.add(tuple);
-        }
+        Field groupValue = this.gbfield == NO_GROUPING ? null : tup.getField(this.gbfield);
         switch (what) {
             case COUNT:
                 if(!groupPairMap.containsKey(groupValue)){
@@ -66,14 +59,22 @@ public class StringAggregator implements Aggregator {
      *   aggregate specified in the constructor.
      */
     public OpIterator iterator() {
-        tupleList = new ArrayList();
-        TupleDesc td1 = new TupleDesc(new Type[]{Type.INT_TYPE,Type.INT_TYPE},
+        TupleDesc td1 = new TupleDesc(new Type[]{gbfieldtype,Type.INT_TYPE},
                 new String[]{"groupVal","aggregateVal"});
-        for(Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-            Tuple tuple = new Tuple(td1);
-            tuple.setField(0,new IntField(entry.getKey()));
-            tuple.setField(1,new IntField(entry.getValue()));
-            tupleList.add(tuple);
+        TupleDesc td2 = new TupleDesc(new Type[]{Type.INT_TYPE},
+                new String[]{"aggregateVal"});
+        for(Map.Entry<Field, Integer> entry : groupPairMap.entrySet()) {
+            if(entry.getKey() !=null){
+                Tuple tuple = new Tuple(td1);
+                tuple.setField(0,entry.getKey());
+                tuple.setField(1,new IntField(entry.getValue()));
+                tupleList.add(tuple);
+            }
+            else{
+                Tuple tuple = new Tuple(td2);
+                tuple.setField(0,new IntField(entry.getValue()));
+                tupleList.add(tuple);
+            }
         }
         return new OpIterator() {
             private boolean isOpen;
@@ -92,9 +93,6 @@ public class StringAggregator implements Aggregator {
             @Override
             public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
                 if(!isOpen) throw new DbException("Not open");
-                for(Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-                    //System.out.println(entry.getKey()+" "+entry.getValue());
-                }
                 return it.next();
             }
 

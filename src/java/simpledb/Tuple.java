@@ -88,13 +88,13 @@ public class Tuple implements Serializable {
      * where \t is any whitespace (except a newline)
      */
     public String toString() {
-        StringBuffer str = null;
-        for (int i = 0; i < td.getSize()-1; i++) {
+        StringBuffer str = new StringBuffer();
+        for (int i = 0; i < datas.size()- 1; i++) {
             if(datas.get(i) == null)throw new UnsupportedOperationException("Implement this");
             str.append(datas.get(i).toString())
                 .append("\t");
         }
-        str.append(datas.get(td.getSize()-1));
+        str.append(datas.get(datas.size()-1));
         return str.toString();
 
     }

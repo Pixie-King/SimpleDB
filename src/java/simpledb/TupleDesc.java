@@ -213,7 +213,7 @@ public class TupleDesc implements Serializable {
      * @return String describing this descriptor.
      */
     public String toString() {
-        StringBuffer str = null;
+        StringBuffer str = new StringBuffer();
         for (int i = 0; i < items.size() - 1; i++) {
             str.append(items.get(i).toString())
                 .append(",");

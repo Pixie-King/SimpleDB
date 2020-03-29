@@ -12,7 +12,8 @@ public class IntegerAggregator implements Aggregator {
     Type gbfieldtype;
     int afield;
     Op what;
-    Map<Integer,Integer> groupPairMap;
+    Map<Field,Integer> groupPairMap;
+    Map<Field,List<Integer>> countForAve;
     List<Tuple> tupleList;
     private static final long serialVersionUID = 1L;
 
@@ -36,7 +37,8 @@ public class IntegerAggregator implements Aggregator {
         this.gbfieldtype = gbfieldtype;
         this.afield = afield;
         this.what = what;
-        groupPairMap = new HashMap();
+        groupPairMap = new HashMap<>();
+        countForAve = new HashMap<>();
         tupleList = new ArrayList<>();
     }
 
@@ -48,20 +50,13 @@ public class IntegerAggregator implements Aggregator {
      *            the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
-        int groupValue = Integer.parseInt(tup.getField(gbfield).toString());
+        Field groupValue = this.gbfield == NO_GROUPING ? null : tup.getField(this.gbfield);
         int aggregateValue = Integer.parseInt(tup.getField(afield).toString());
-        TupleDesc td2 = new TupleDesc(new Type[]{Type.INT_TYPE},
-                new String[]{"aggregateVal"});
-        if(groupValue == Aggregator.NO_GROUPING) {
-            Tuple tuple = new Tuple(td2);
-            tuple.setField(0, tup.getField(afield));
-            tupleList.add(tuple);
-        }
         switch (what) {
             case SUM:
                 int sum = aggregateValue;
-                for (Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-                    if(entry.getKey() == groupValue){
+                for (Map.Entry<Field, Integer> entry : groupPairMap.entrySet()) {
+                    if(entry.getKey().equals(groupValue)){
                         sum += entry.getValue();
                     }
                 }
@@ -69,8 +64,8 @@ public class IntegerAggregator implements Aggregator {
                 break;
             case MIN:
                 int min = aggregateValue;
-                for (Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-                    if(entry.getKey() == groupValue){
+                for (Map.Entry<Field, Integer> entry : groupPairMap.entrySet()) {
+                    if(entry.getKey().equals(groupValue)){
                         if(min > entry.getValue())min = entry.getValue();
                     }
                 }
@@ -78,23 +73,31 @@ public class IntegerAggregator implements Aggregator {
                 break;
             case MAX:
                 int max = aggregateValue;
-                for (Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-                    if(entry.getKey() == groupValue){
+                for (Map.Entry<Field, Integer> entry : groupPairMap.entrySet()) {
+                    if(entry.getKey().equals(groupValue)){
                         if(max < entry.getValue())max = entry.getValue();
                     }
                 }
                 groupPairMap.put(groupValue, max);
                 break;
             case AVG:
-                int sum1 = aggregateValue;
-                int i = 1;
-                for (Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-                    if(entry.getKey() == groupValue){
-                        sum1 += entry.getValue();
-                        i++;
-                    }
+                if(!countForAve.containsKey(groupValue)){
+                    countForAve.put(groupValue,new ArrayList<>());
+                    countForAve.get(groupValue).add(aggregateValue);
+            }
+                else countForAve.get(groupValue).add(aggregateValue);
+                List<Integer> integers = countForAve.get(groupValue);
+                int sum1 = 0;
+                for (int i = 0; i < integers.size(); i++) {
+                    sum1 += integers.get(i);
                 }
-                groupPairMap.put(groupValue, sum1/i);
+                groupPairMap.put(groupValue,sum1/integers.size());
+                break;
+            case COUNT:
+                if(!groupPairMap.containsKey(groupValue)){
+                    groupPairMap.put(groupValue,1);
+                }
+                else groupPairMap.put(groupValue,groupPairMap.get(groupValue) + 1);
                 break;
             default:break;
         }
@@ -110,14 +113,22 @@ public class IntegerAggregator implements Aggregator {
      *         the constructor.
      */
     public OpIterator iterator() {
-        tupleList = new ArrayList();
-        TupleDesc td1 = new TupleDesc(new Type[]{Type.INT_TYPE,Type.INT_TYPE},
+        TupleDesc td1 = new TupleDesc(new Type[]{gbfieldtype,Type.INT_TYPE},
                 new String[]{"groupVal","aggregateVal"});
-        for(Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-            Tuple tuple = new Tuple(td1);
-            tuple.setField(0,new IntField(entry.getKey()));
-            tuple.setField(1,new IntField(entry.getValue()));
-            tupleList.add(tuple);
+        TupleDesc td2 = new TupleDesc(new Type[]{Type.INT_TYPE},
+                new String[]{"aggregateVal"});
+        for(Map.Entry<Field, Integer> entry : groupPairMap.entrySet()) {
+                if(entry.getKey() !=null){
+                Tuple tuple = new Tuple(td1);
+                tuple.setField(0,entry.getKey());
+                tuple.setField(1,new IntField(entry.getValue()));
+                tupleList.add(tuple);
+            }
+            else{
+                Tuple tuple = new Tuple(td2);
+                tuple.setField(0,new IntField(entry.getValue()));
+                tupleList.add(tuple);
+            }
         }
        return new OpIterator() {
            private boolean isOpen;
@@ -136,9 +147,6 @@ public class IntegerAggregator implements Aggregator {
            @Override
            public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
                if(!isOpen) throw new DbException("Not open");
-               for(Map.Entry<Integer, Integer> entry : groupPairMap.entrySet()) {
-                   //System.out.println(entry.getKey()+" "+entry.getValue());
-               }
                return it.next();
            }
 
@@ -160,5 +168,4 @@ public class IntegerAggregator implements Aggregator {
            }
        };
     }
-
 }
