@@ -3,6 +3,7 @@ package simpledb;
 import java.io.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BufferPool {
     private int numPages;
 
-    private List<Page> pages;
+    private HashMap<PageId,Page> pages;
 
     /** Bytes per page, including header. */
 
@@ -40,7 +41,7 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
        this.numPages = numPages;
-       pages = new ArrayList<>();
+           pages = new HashMap<>();
     }
 
     public static int getPageSize() {
@@ -75,12 +76,10 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException{
         if(tid == null)throw new TransactionAbortedException();
-        for (int i = 0; i < pages.size(); i++) {
-            if(this.pages.get(i).getId().equals(pid))return this.pages.get(i);
-        }
+        if (this.pages.containsKey(pid))return pages.get(pid);
         if(pages.size()>= DEFAULT_PAGES)throw new DbException("PageNum out of range");
         Page page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
-        pages.add(page);
+        pages.put(pid,page);
         return page;
     }
 
@@ -145,10 +144,12 @@ public class BufferPool {
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        ArrayList<Page> page = Database.getCatalog().getDatabaseFile(tableId).insertTuple(tid, t);
+        for (Page p:page) {
+            p.markDirty(true,tid);
+            pages.put(p.getId(),p);
+        }
     }
-
     /**
      * Remove the specified tuple from the buffer pool.
      * Will acquire a write lock on the page the tuple is removed from and any
@@ -164,8 +165,11 @@ public class BufferPool {
      */
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        ArrayList<Page> page = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId()).deleteTuple(tid, t);
+        for (Page p:page) {
+            p.markDirty(true,tid);
+            pages.put(p.getId(),p);
+        }
     }
 
     /**

@@ -37,8 +37,7 @@ public class HeapPageId implements PageId {
      * @see BufferPool
      */
     public int hashCode() {
-        return this.tableId + this.pgNo;
-        //throw new UnsupportedOperationException("implement this");
+        return Database.getBufferPool().hashCode();
     }
 
     /**
