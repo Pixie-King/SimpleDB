@@ -166,7 +166,12 @@ public class HeapFile implements DbFile {
 
             @Override
             public boolean hasNext() throws DbException, TransactionAbortedException {
-                return isOpen && pid < numPages() || (pid == numPages() && it.hasNext());
+                if(!isOpen ||(pid == numPages() && !it.hasNext())) return false;
+                if(it != null && it.hasNext())return true;
+                else {
+                    getPage(pid++);
+                    return it.hasNext();
+                }
             }
 
             private boolean getPage(int pid) throws TransactionAbortedException, DbException {
