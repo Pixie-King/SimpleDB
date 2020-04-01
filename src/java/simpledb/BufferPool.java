@@ -5,6 +5,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -77,7 +78,7 @@ public class BufferPool {
             throws TransactionAbortedException, DbException{
         if(tid == null)throw new TransactionAbortedException();
         if (this.pages.containsKey(pid))return pages.get(pid);
-        if(pages.size()>= DEFAULT_PAGES)throw new DbException("PageNum out of range");
+        if(pages.size()>= numPages)evictPage();
         Page page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
         pages.put(pid,page);
         return page;
@@ -178,9 +179,9 @@ public class BufferPool {
      *     break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // some code goes here
-        // not necessary for lab1
-
+        for(Map.Entry<PageId, Page> entry : pages.entrySet()) {
+            flushPage(entry.getKey());
+        }
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -192,17 +193,16 @@ public class BufferPool {
         are removed from the cache so they can be reused safely
     */
     public synchronized void discardPage(PageId pid) {
-        // some code goes here
-        // not necessary for lab1
+        pages.remove(pid);
     }
 
     /**
      * Flushes a certain page to disk
      * @param pid an ID indicating the page to flush
      */
-    private synchronized  void flushPage(PageId pid) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+    private synchronized void flushPage(PageId pid) throws IOException {
+        if(pages.get(pid).isDirty() != null)
+            Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(pages.get(pid));
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -216,9 +216,16 @@ public class BufferPool {
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
-    private synchronized  void evictPage() throws DbException {
-        // some code goes here
-        // not necessary for lab1
-    }
+    private synchronized void evictPage() throws DbException {
 
+        for(Map.Entry<PageId, Page> entry : pages.entrySet()) {
+            try {
+                flushPage(entry.getKey());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            discardPage(entry.getKey());
+            break;
+        }
+    }
 }
