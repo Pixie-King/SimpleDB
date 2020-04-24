@@ -55,7 +55,7 @@ public class Aggregate extends Operator {
         }
         types.add(this.child.getTupleDesc().getFieldType(this.aField));
         names.add(this.child.getTupleDesc().getFieldName(this.aField));
-        
+
         this.td = new TupleDesc(types.toArray(new Type[types.size()]), names.toArray(new String[names.size()]));
     }
 

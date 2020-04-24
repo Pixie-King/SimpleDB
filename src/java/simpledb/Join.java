@@ -113,10 +113,6 @@ public class Join extends Operator {
                     for (; j < t2.datas.size(); j++) {
                         union.setField(i + j,t2.datas.get(j));
                     }
-                    if(!child2.hasNext()){
-                        child2.rewind();
-                        t1 = null;
-                    }
                     return union;
                 }
             }
