@@ -24,6 +24,8 @@ public class BufferPool {
 
     private HashMap<PageId,Page> pages;
 
+    private LockManager lockManager;
+
     /** Bytes per page, including header. */
 
     private static final int DEFAULT_PAGE_SIZE = 4096;
@@ -35,6 +37,104 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+
+    public class Lock{
+        public TransactionId tid;
+        public boolean isShared;
+
+        public Lock(TransactionId tid,boolean isShared){
+            this.tid = tid;
+            this.isShared = isShared;
+        }
+    }
+
+    public class LockManager{
+        ConcurrentHashMap<PageId,ArrayList<BufferPool.Lock>> lockMap; //学习多线程时博客中提到HashMap多线程不安全，建议采用ConcurrentHashMap
+
+        public LockManager(){
+            lockMap = new ConcurrentHashMap<PageId,ArrayList<BufferPool.Lock>>();
+        }
+
+        public synchronized boolean acquireLock(PageId pid,TransactionId tid,boolean isShared){
+            //此页无锁则添加一个锁
+            if(lockMap.get(pid) == null){
+                Lock lock = new Lock(tid,isShared);
+                ArrayList<Lock> locks= new ArrayList<BufferPool.Lock>();
+                locks.add(lock);
+                lockMap.put(pid,locks);
+                return true;
+            }
+
+            ArrayList lockList = lockMap.get(pid);
+
+            /**
+             * 共享锁【S锁】又称读锁，若事务T对数据对象A加上S锁，则事务T可以读A但不能修改A，
+             * 其他事务只能再对A加S锁，而不能加X锁，直到T释放A上的S锁。这保证了其他事务可以读A，
+             * 但在T释放A上的S锁之前不能对A做任何修改。
+             * 排他锁【X锁】又称写锁。若事务T对数据对象A加上X锁，事务T可以读A也可以修改A，
+             * 其他事务不能再对A加任何锁，直到T释放A上的锁。这保证了其他事务在T释放A上的锁之前不能再读取和修改A。
+             *
+             * 由此可知可以分为以下几种情况
+             * 一、本事务在此存有锁
+             *   若是当前需要的锁，则获取成功，无需添加
+             *   若当前为排他锁，需要共享锁，则无需添加，因为共享锁代表读取权限，排他锁代表读写权限
+             *   若当前为共享锁，需要排他锁，分为两种，若只有一个锁，升格为排他锁；否则申请失败
+             * 二、本事务在此不持有锁
+             *   若在此有其他的排他锁，则此事务不能在此申请锁
+             *   若在此有其他锁的共享锁，则此事务可以添加一个共享锁，但不能添加排他锁
+            */
+            for (Object o:lockList) {
+                Lock lock = (Lock)o;
+                if(lock.tid == tid){
+                    if(lock.isShared == isShared)
+                        return true;
+                    if(!lock.isShared)
+                        return true;
+                    if(lockList.size() == 1){
+                        lock.isShared = false;
+                        return true;
+                    }
+                    else return false;
+                }
+            }
+
+            if(lockList.size() == 1 && !((Lock)lockList.get(0)).isShared)return false;
+            if(isShared){
+                Lock lock = new Lock(tid,true);
+                lockList.add(lock);
+                lockMap.put(pid,lockList);
+                return true;
+            }
+            return false;
+        }
+
+        public synchronized boolean releaseLock(PageId pid,TransactionId tid){
+            if(lockMap.get(pid) == null){
+                return false;
+            }
+            ArrayList<Lock> locks = lockMap.get(pid);
+            for(int i=0;i<locks.size();++i){
+                Lock lock = locks.get(i);
+                if(lock.tid == tid){
+                    locks.remove(lock);
+                    if(locks.size() == 0)
+                        lockMap.remove(pid);
+                    return true;
+                }
+            }
+            return false;
+        }
+        public synchronized boolean holdsLock(PageId pid,TransactionId tid){
+            if(lockMap.get(pid) == null){
+                return false;
+            }
+            ArrayList<Lock> locks =  lockMap.get(pid);
+            for (int i = 0; i < locks.size(); i++) {
+                if(locks.get(i).tid == tid)return true;
+            }
+            return false;
+        }
+    }
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -76,11 +176,19 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException{
+        boolean isShared;
+        if(perm == Permissions.READ_ONLY){
+            isShared = true;
+        }
+        else isShared = false;
         if(tid == null)throw new TransactionAbortedException();
         if (this.pages.containsKey(pid))return pages.get(pid);
         if(pages.size()>= numPages)evictPage();
         Page page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
         pages.put(pid,page);
+        if(holdsLock(tid,pid)){
+
+        }
         return page;
     }
 
@@ -94,8 +202,7 @@ public class BufferPool {
      * @param pid the ID of the page to unlock
      */
     public void releasePage(TransactionId tid, PageId pid) {
-        // some code goes here
-        // not necessary for lab1|lab2
+        lockManager.releaseLock(pid,tid);
     }
 
     /**
@@ -110,9 +217,7 @@ public class BufferPool {
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
-        // some code goes here
-        // not necessary for lab1|lab2
-        return false;
+        return lockManager.holdsLock(p,tid);
     }
 
     /**

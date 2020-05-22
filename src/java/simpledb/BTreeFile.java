@@ -248,33 +248,20 @@ public class BTreeFile implements DbFile {
     private BTreeLeafPage findReverseLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
                                               Field f)
             throws DbException, TransactionAbortedException {
-        // some code goes here
-        switch (pid.pgcateg()) {
-            case BTreePageId.LEAF:
-                return (BTreeLeafPage) (this.getPage(tid, dirtypages, pid, perm));
-            case BTreePageId.INTERNAL:
-                BTreeInternalPage page = (BTreeInternalPage) (this.getPage(tid, dirtypages, pid, Permissions.READ_ONLY));
-                Iterator<BTreeEntry> entryIterator = page.reverseIterator();
-                if (entryIterator == null || !entryIterator.hasNext()) {
-                    throw new DbException("");
+        if(pid.pgcateg() == BTreePageId.LEAF)return(BTreeLeafPage)this.getPage(tid,dirtypages,pid,perm);
+        else{
+            BTreeInternalPage page = (BTreeInternalPage)this.getPage(tid,dirtypages,pid,perm);
+            Iterator<BTreeEntry> entries = page.reverseIterator();
+            if(f == null)return findLeafPage(tid, dirtypages, entries.next().getRightChild(), perm, f);
+            BTreeEntry entry = entries.next();
+            while(true){
+                if(entry.getKey().compare(Op.LESS_THAN_OR_EQ,f)){
+                    return findLeafPage(tid, dirtypages, entry.getRightChild(), perm, f);
                 }
-                if (f == null) {
-                    return findLeafPage(tid, dirtypages, entryIterator.next().getRightChild(), perm, f);
-                }
-                BTreeEntry entry = entryIterator.next();
-                while (true) {
-                    if (entry.getKey().compare(Op.LESS_THAN, f)) {
-                        return findLeafPage(tid, dirtypages, entry.getRightChild(), perm, f);
-                    }
-                    if (entryIterator.hasNext()) {
-                        entry = entryIterator.next();
-                    } else break;
-                }
-                return findLeafPage(tid, dirtypages, entry.getLeftChild(), perm, f);
-            case BTreePageId.HEADER:
-            case BTreePageId.ROOT_PTR:
-            default:
-                throw new DbException("");
+                if(entries.hasNext())entry = entries.next();
+                else break;
+            }
+            return findLeafPage(tid,dirtypages,entry.getLeftChild(),perm,f);
         }
     }
 
