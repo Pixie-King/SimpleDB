@@ -124,10 +124,14 @@ public class HeapFile implements DbFile {
         int pid = 0;
         for (; pid < numPages(); pid++) {
             HeapPage page = (HeapPage) bufferPool.getPage(tid, new HeapPageId(tableId, pid), Permissions.READ_WRITE);
-            if(page.getNumEmptySlots() == 0)continue;
-            page.insertTuple(t);
-            pages.add(page);
-            break;
+            if(page.getNumEmptySlots() == 0){
+                Database.getBufferPool().releasePage(tid,new HeapPageId(tableId, pid));
+            }
+            else {
+                page.insertTuple(t);
+                pages.add(page);
+                break;
+            }
         }
         if (pid == numPages()) {
             HeapPage page = new HeapPage(new HeapPageId(tableId, pid), HeapPage.createEmptyPageData());

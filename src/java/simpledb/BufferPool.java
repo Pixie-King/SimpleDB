@@ -2,10 +2,7 @@ package simpledb;
 
 import java.io.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -55,14 +52,14 @@ public class BufferPool {
             lockMap = new ConcurrentHashMap<PageId,ArrayList<BufferPool.Lock>>();
         }
 
-        public synchronized boolean acquireLock(PageId pid,TransactionId tid,boolean isShared){
+        public synchronized void acquireLock(PageId pid,TransactionId tid,boolean isShared) {
             //此页无锁则添加一个锁
-            if(lockMap.get(pid) == null){
-                Lock lock = new Lock(tid,isShared);
-                ArrayList<Lock> locks= new ArrayList<BufferPool.Lock>();
+            if (lockMap.get(pid) == null) {
+                Lock lock = new Lock(tid, isShared);
+                ArrayList<Lock> locks = new ArrayList<BufferPool.Lock>();
                 locks.add(lock);
-                lockMap.put(pid,locks);
-                return true;
+                lockMap.put(pid, locks);
+                return;
             }
 
             ArrayList lockList = lockMap.get(pid);
@@ -82,30 +79,37 @@ public class BufferPool {
              * 二、本事务在此不持有锁
              *   若在此有其他的排他锁，则此事务不能在此申请锁
              *   若在此有其他锁的共享锁，则此事务可以添加一个共享锁，但不能添加排他锁
-            */
-            for (Object o:lockList) {
-                Lock lock = (Lock)o;
-                if(lock.tid == tid){
-                    if(lock.isShared == isShared)
-                        return true;
-                    if(!lock.isShared)
-                        return true;
-                    if(lockList.size() == 1){
+             */
+            for (Object o : lockList) {
+                Lock lock = (Lock) o;
+                if (lock.tid == tid) {
+                    if (lock.isShared == isShared)
+                        return;
+                    if (!lock.isShared)
+                        return;
+                    if (lockList.size() == 1) {
                         lock.isShared = false;
-                        return true;
-                    }
-                    else return false;
+                        return;
+                    } else block(1000);
                 }
             }
-
-            if(lockList.size() == 1 && !((Lock)lockList.get(0)).isShared)return false;
-            if(isShared){
-                Lock lock = new Lock(tid,true);
-                lockList.add(lock);
-                lockMap.put(pid,lockList);
-                return true;
+            if (lockList.size() == 1 && !((Lock) lockList.get(0)).isShared) {
+                block(1000);
             }
-            return false;
+            if (isShared) {
+                    Lock lock = new Lock(tid, true);
+                    lockList.add(lock);
+                    lockMap.put(pid, lockList);
+                    return;
+            }
+            block(1000);
+        }
+        public synchronized void block(long timeout){
+            try {
+                wait(timeout);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
 
         public synchronized boolean releaseLock(PageId pid,TransactionId tid){
@@ -143,6 +147,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
        this.numPages = numPages;
            pages = new HashMap<>();
+           lockManager = new LockManager();
     }
 
     public static int getPageSize() {
@@ -181,6 +186,7 @@ public class BufferPool {
             isShared = true;
         }
         else isShared = false;
+        lockManager.acquireLock(pid,tid,isShared);
         if(tid == null)throw new TransactionAbortedException();
         if (this.pages.containsKey(pid))return pages.get(pid);
         if(pages.size()>= numPages)evictPage();
