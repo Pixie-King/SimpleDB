@@ -328,9 +328,11 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized void evictPage() throws DbException {
-
+        boolean allDirty = true;
         for(Map.Entry<PageId, Page> entry : pages.entrySet()) {
+            if(entry.getValue().isDirty() != null)continue;
             try {
+                allDirty = false;
                 flushPage(entry.getKey());
             } catch (IOException e) {
                 e.printStackTrace();
@@ -338,5 +340,6 @@ public class BufferPool {
             discardPage(entry.getKey());
             break;
         }
+        if(allDirty)throw new DbException("All pages are dirty");
     }
 }
