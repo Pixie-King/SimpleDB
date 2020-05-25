@@ -217,8 +217,7 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      */
     public void transactionComplete(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+        transactionComplete(tid,true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -235,8 +234,22 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+        if(commit)flushPages(tid);
+        else{
+            for (PageId pid : pages.keySet()) {
+                Page page = pages.get(pid);
+                if (page.isDirty() == tid) {
+                    int tabId = pid.getTableId();
+                    DbFile file =  Database.getCatalog().getDatabaseFile(tabId);
+                    Page pageFromDisk = file.readPage(pid);
+                    pages.put(pid, pageFromDisk);
+                }
+            }
+        }
+        for(PageId pid:pages.keySet()){
+            if(holdsLock(tid,pid))
+                releasePage(tid,pid);
+        }
     }
 
     /**
@@ -318,9 +331,10 @@ public class BufferPool {
 
     /** Write all pages of the specified transaction to disk.
      */
-    public synchronized  void flushPages(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+    public synchronized void flushPages(TransactionId tid) throws IOException {
+        for(Map.Entry<PageId, Page> entry : pages.entrySet()) {
+            if(entry.getValue().isDirty() == tid)flushPage(entry.getKey());
+        }
     }
 
     /**
