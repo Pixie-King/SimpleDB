@@ -52,14 +52,14 @@ public class BufferPool {
             lockMap = new ConcurrentHashMap<PageId,ArrayList<BufferPool.Lock>>();
         }
 
-        public synchronized void acquireLock(PageId pid,TransactionId tid,boolean isShared) {
+        public synchronized boolean acquireLock(PageId pid,TransactionId tid,boolean isShared) {
             //此页无锁则添加一个锁
             if (lockMap.get(pid) == null) {
                 Lock lock = new Lock(tid, isShared);
                 ArrayList<Lock> locks = new ArrayList<BufferPool.Lock>();
                 locks.add(lock);
                 lockMap.put(pid, locks);
-                return;
+                return true;
             }
 
             ArrayList lockList = lockMap.get(pid);
@@ -84,32 +84,25 @@ public class BufferPool {
                 Lock lock = (Lock) o;
                 if (lock.tid == tid) {
                     if (lock.isShared == isShared)
-                        return;
+                        return true;
                     if (!lock.isShared)
-                        return;
+                        return true;
                     if (lockList.size() == 1) {
                         lock.isShared = false;
-                        return;
-                    } else block(1000);
+                        return true;
+                    } else return false;
                 }
             }
             if (lockList.size() == 1 && !((Lock) lockList.get(0)).isShared) {
-                block(1000);
+                return false;
             }
             if (isShared) {
                     Lock lock = new Lock(tid, true);
                     lockList.add(lock);
                     lockMap.put(pid, lockList);
-                    return;
+                    return true;
             }
-            block(1000);
-        }
-        public synchronized void block(long timeout){
-            try {
-                wait(timeout);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            return false;
         }
 
         public synchronized boolean releaseLock(PageId pid,TransactionId tid){
@@ -186,6 +179,17 @@ public class BufferPool {
             isShared = true;
         }
         else isShared = false;
+        boolean lockAcquired = false;
+        long start = System.currentTimeMillis();
+        long timeout = new Random().nextInt(2000) + 1000;
+        while(!lockAcquired){
+            long now = System.currentTimeMillis();
+            if(now-start > timeout){
+                throw new TransactionAbortedException();
+            }
+            lockAcquired = lockManager.acquireLock(pid,tid,isShared);
+        }
+
         lockManager.acquireLock(pid,tid,isShared);
         if(tid == null)throw new TransactionAbortedException();
         if (this.pages.containsKey(pid))return pages.get(pid);
